@@ -11,8 +11,8 @@ import Combine
 @Observable
 class SessionViewModel {
     // Session setup state
-    var selectedTimeIndex: Int = CampyOptions.defaultTimeIndex
-    var selectedBetIndex: Int = CampyOptions.defaultBetIndex
+    var selectedTimeIndex: Int? = nil
+    var selectedBetIndex: Int? = nil
     var pickerMode: PickerMode = .time
 
     // Session state
@@ -33,12 +33,18 @@ class SessionViewModel {
     weak var walletManager: WalletManager?
 
     // Computed properties
-    var selectedDuration: Int {
-        CampyOptions.timeOptions[selectedTimeIndex]
+    var selectedDuration: Int? {
+        guard let index = selectedTimeIndex else { return nil }
+        return CampyOptions.timeOptions[index]
     }
 
-    var selectedBet: Int {
-        CampyOptions.betOptions[selectedBetIndex]
+    var selectedBet: Int? {
+        guard let index = selectedBetIndex else { return nil }
+        return CampyOptions.betOptions[index]
+    }
+
+    var hasSelectedTimeAndBet: Bool {
+        selectedTimeIndex != nil && selectedBetIndex != nil
     }
 
     var formattedTimeRemaining: String {
@@ -48,7 +54,9 @@ class SessionViewModel {
     }
 
     var canStartSession: Bool {
-        guard let walletManager = walletManager else { return false }
+        guard let walletManager = walletManager,
+              let selectedBet = selectedBet,
+              hasSelectedTimeAndBet else { return false }
         return walletManager.balance >= selectedBet
     }
 
@@ -59,7 +67,9 @@ class SessionViewModel {
     // MARK: - Session Setup
 
     func startSession() {
-        guard canStartSession else {
+        guard canStartSession,
+              let duration = selectedDuration,
+              let bet = selectedBet else {
             error = "Insufficient balance"
             return
         }
@@ -75,15 +85,19 @@ class SessionViewModel {
             isHost: true
         )
 
-        var session = Session(
+        let session = Session(
             hostId: hostParticipant.id,
             participants: [hostParticipant],
-            durationMinutes: selectedDuration,
-            betAmount: selectedBet,
+            durationMinutes: duration,
+            betAmount: bet,
             state: .waiting
         )
 
         currentSession = session
+
+        // Initialize timer with selected duration and start it
+        remainingSeconds = duration * 60
+        startTimer()
 
         // Start advertising
         bluetoothManager?.startAdvertising(session: session)

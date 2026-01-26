@@ -9,14 +9,13 @@ import SwiftUI
 
 struct HorizontalPicker<T: Hashable>: View {
     let items: [T]
-    @Binding var selectedIndex: Int
+    @Binding var selectedIndex: Int?
     let itemLabel: (T) -> String
 
     var body: some View {
         GeometryReader { geometry in
             let itemWidth: CGFloat = 60
             let spacing: CGFloat = CampySpacing.md
-            let totalWidth = CGFloat(items.count) * itemWidth + CGFloat(items.count - 1) * spacing
             let sidePadding = (geometry.size.width - itemWidth) / 2
 
             ScrollViewReader { proxy in
@@ -38,12 +37,11 @@ struct HorizontalPicker<T: Hashable>: View {
                     .padding(.horizontal, sidePadding)
                 }
                 .onChange(of: selectedIndex) { _, newValue in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        proxy.scrollTo(newValue, anchor: .center)
+                    if let newValue = newValue {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            proxy.scrollTo(newValue, anchor: .center)
+                        }
                     }
-                }
-                .onAppear {
-                    proxy.scrollTo(selectedIndex, anchor: .center)
                 }
             }
         }
@@ -67,7 +65,7 @@ struct PickerItem: View {
 
 // MARK: - Time Picker
 struct TimePicker: View {
-    @Binding var selectedIndex: Int
+    @Binding var selectedIndex: Int?
 
     var body: some View {
         HorizontalPicker(
@@ -81,7 +79,7 @@ struct TimePicker: View {
 
 // MARK: - Bet Picker
 struct BetPicker: View {
-    @Binding var selectedIndex: Int
+    @Binding var selectedIndex: Int?
 
     var body: some View {
         HorizontalPicker(
@@ -144,20 +142,20 @@ struct ToggleButton: View {
 
 #Preview {
     struct PreviewContainer: View {
-        @State var timeIndex = 2
-        @State var betIndex = 2
+        @State var timeIndex: Int? = 2
+        @State var betIndex: Int? = 2
         @State var mode: PickerMode = .time
 
         var body: some View {
             VStack(spacing: 40) {
                 VStack(spacing: CampySpacing.md) {
-                    Text("Time: \(CampyOptions.timeOptions[timeIndex]) min")
+                    Text("Time: \(timeIndex.map { CampyOptions.timeOptions[$0] } ?? 0) min")
                         .foregroundColor(.white)
                     TimePicker(selectedIndex: $timeIndex)
                 }
 
                 VStack(spacing: CampySpacing.md) {
-                    Text("Bet: \(CampyOptions.betOptions[betIndex])b")
+                    Text("Bet: \(betIndex.map { CampyOptions.betOptions[$0] } ?? 0)b")
                         .foregroundColor(.white)
                     BetPicker(selectedIndex: $betIndex)
                 }

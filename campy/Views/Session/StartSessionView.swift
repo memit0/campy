@@ -100,8 +100,13 @@ struct StartSessionView: View {
     }
 
     private func startSession() {
+        guard viewModel.hasSelectedTimeAndBet else {
+            viewModel.error = "Please select both time and bet amount before starting."
+            return
+        }
+
         guard viewModel.canStartSession else {
-            viewModel.error = "You need at least \(viewModel.selectedBet) coins to start this session."
+            viewModel.error = "You need at least \(viewModel.selectedBet ?? 0) coins to start this session."
             return
         }
 
