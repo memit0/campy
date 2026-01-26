@@ -75,7 +75,7 @@ struct WalletView: View {
     private var balanceSection: some View {
         VStack(spacing: CampySpacing.md) {
             // Coin mascot
-            CoinMascotView(size: 80)
+            CoinMascotView(size: 120)
 
             // Balance display
             BalanceView(balance: walletManager.balance, style: .expanded)
@@ -206,7 +206,7 @@ struct CoinPackageCard: View {
         Button(action: action) {
             VStack(spacing: CampySpacing.sm) {
                 // Coin icon
-                CoinMascotView(size: 40)
+                CoinMascotView(size: 64)
 
                 // Coin amount
                 Text("\(package.coins)")
