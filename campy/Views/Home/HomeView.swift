@@ -10,6 +10,7 @@ import SwiftUI
 struct HomeView: View {
     @Bindable var viewModel: HomeViewModel
     @Environment(WalletManager.self) private var walletManager
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -61,6 +62,9 @@ struct HomeView: View {
         .sheet(isPresented: $viewModel.showJoinSession) {
             JoinSessionSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
 
     private var headerView: some View {
@@ -72,7 +76,7 @@ struct HomeView: View {
 
             // Settings button
             Button(action: {
-                // Settings action
+                showSettings = true
             }) {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 22))
