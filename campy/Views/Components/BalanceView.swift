@@ -54,14 +54,9 @@ struct BalanceView: View {
     }
 
     private func coinIcon(size: CGFloat) -> some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [CampyColors.currencyGradientStart, CampyColors.currencyGradientEnd],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+        Image("coin-mascot")
+            .resizable()
+            .scaledToFit()
             .frame(width: size, height: size)
     }
 
@@ -77,45 +72,10 @@ struct CoinMascotView: View {
     var size: CGFloat = 80
 
     var body: some View {
-        ZStack {
-            // Coin body
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [CampyColors.currencyGradientStart, CampyColors.currencyGradientEnd],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: size, height: size)
-
-            // Face
-            VStack(spacing: size * 0.05) {
-                // Eyes
-                HStack(spacing: size * 0.15) {
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: size * 0.06, height: size * 0.06)
-                    Circle()
-                        .fill(Color.black)
-                        .frame(width: size * 0.06, height: size * 0.06)
-                }
-
-                // Smile
-                Path { path in
-                    let smileWidth = size * 0.25
-                    let smileHeight = size * 0.08
-                    path.move(to: CGPoint(x: -smileWidth/2, y: 0))
-                    path.addQuadCurve(
-                        to: CGPoint(x: smileWidth/2, y: 0),
-                        control: CGPoint(x: 0, y: smileHeight)
-                    )
-                }
-                .stroke(Color.black, lineWidth: 2)
-                .frame(width: size * 0.3, height: size * 0.1)
-            }
-            .offset(y: -size * 0.05)
-        }
+        Image("coin-mascot")
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
     }
 }
 
