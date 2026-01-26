@@ -12,6 +12,7 @@ struct WalletView: View {
     @Environment(StoreKitManager.self) private var storeKitManager
 
     @State private var viewModel = WalletViewModel()
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -52,13 +53,18 @@ struct WalletView: View {
         } message: {
             Text("Withdrawals will be available in a future update.")
         }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
     }
 
     private var headerView: some View {
         HStack {
             BalanceView(balance: walletManager.balance, style: .compact)
             Spacer()
-            Button(action: {}) {
+            Button(action: {
+                showSettings = true
+            }) {
                 Image(systemName: "gearshape.fill")
                     .font(.system(size: 22))
                     .foregroundColor(CampyColors.textSecondary)
@@ -69,7 +75,7 @@ struct WalletView: View {
     private var balanceSection: some View {
         VStack(spacing: CampySpacing.md) {
             // Coin mascot
-            CoinMascotView(size: 80)
+            CoinMascotView(size: 120)
 
             // Balance display
             BalanceView(balance: walletManager.balance, style: .expanded)
@@ -200,7 +206,7 @@ struct CoinPackageCard: View {
         Button(action: action) {
             VStack(spacing: CampySpacing.sm) {
                 // Coin icon
-                CoinMascotView(size: 40)
+                CoinMascotView(size: 64)
 
                 // Coin amount
                 Text("\(package.coins)")
