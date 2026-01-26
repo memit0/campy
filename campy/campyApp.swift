@@ -48,11 +48,11 @@ struct CampyApp: App {
     }
 
     private func setupManagers() {
-        // Initialize CloudKit (deferred to avoid init crashes)
-        cloudKitManager.initialize()
+        // TODO: CloudKit disabled temporarily - crashes on init
+        // cloudKitManager.initialize()
+        // walletManager.cloudKitManager = cloudKitManager
 
         // Connect managers to each other
-        walletManager.cloudKitManager = cloudKitManager
         gameManager.bluetoothManager = bluetoothManager
         gameManager.walletManager = walletManager
         gameManager.appLifecycleManager = appLifecycleManager
