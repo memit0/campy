@@ -31,7 +31,7 @@ struct BalanceView: View {
                 .font(CampyFonts.body())
                 .foregroundColor(CampyColors.textPrimary)
 
-            coinIcon(size: 16)
+            coinIcon(size: 32)
         }
         .padding(.horizontal, CampySpacing.md)
         .padding(.vertical, CampySpacing.sm)
@@ -69,7 +69,7 @@ struct BalanceView: View {
 
 // MARK: - Coin Mascot View
 struct CoinMascotView: View {
-    var size: CGFloat = 80
+    var size: CGFloat = 120
 
     var body: some View {
         Image("coin-mascot")
