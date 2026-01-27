@@ -43,7 +43,6 @@ struct HomeView: View {
 
                 // Mascot
                 mascotView
-                    .frame(height: 200)
 
                 Spacer()
 
@@ -89,7 +88,7 @@ struct HomeView: View {
         Image("campy-mascot")
             .resizable()
             .scaledToFit()
-            .frame(maxWidth: 280)
+            .frame(maxWidth: 350, maxHeight: 350)
     }
 }
 

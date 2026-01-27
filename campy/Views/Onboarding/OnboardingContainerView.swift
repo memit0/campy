@@ -46,36 +46,41 @@ struct OnboardingPage1View: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Image fills top portion
+            ZStack {
+                // Full screen background image
                 Image("onboarding-1")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height * 0.55)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    .ignoresSafeArea()
 
-                // Content at bottom
-                VStack(spacing: CampySpacing.md) {
-                    Text("Put the phone down and pick up the moment.")
-                        .font(CampyFonts.header(28))
-                        .foregroundColor(CampyColors.textPrimary)
-                        .multilineTextAlignment(.center)
+                // Content overlay
+                VStack(spacing: 0) {
+                    // Text at top
+                    VStack(spacing: CampySpacing.md) {
+                        Text("Put the phone down and pick up the moment.")
+                            .font(CampyFonts.header(28))
+                            .foregroundColor(CampyColors.textPrimary)
+                            .multilineTextAlignment(.center)
 
-                    Text("Some memories are better lived than scrolled.")
-                        .font(CampyFonts.body())
-                        .foregroundColor(CampyColors.textSecondary)
-                        .multilineTextAlignment(.center)
+                        Text("Some memories are better lived than scrolled.")
+                            .font(CampyFonts.body())
+                            .foregroundColor(CampyColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.top, CampySpacing.xxl)
+
+                    Spacer()
+
+                    // Button at bottom
+                    PillButton(primary: "Next") {
+                        viewModel.nextPage()
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.xxl)
                 }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.top, CampySpacing.lg)
-
-                Spacer()
-
-                PillButton(primary: "Next") {
-                    viewModel.nextPage()
-                }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.bottom, CampySpacing.xxl)
             }
         }
     }
@@ -87,44 +92,48 @@ struct OnboardingPage2View: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Image fills top portion
+            ZStack {
+                // Full screen background image
                 Image("onboarding-2")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height * 0.5)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    .ignoresSafeArea()
 
-                // Content at bottom
-                VStack(spacing: CampySpacing.md) {
-                    Text("Your friends are right here.\nPut the phone down and don't miss this moment.")
-                        .font(CampyFonts.header(24))
-                        .foregroundColor(CampyColors.textPrimary)
-                        .multilineTextAlignment(.center)
+                // Content overlay
+                VStack(spacing: 0) {
+                    Spacer()
 
-                    Text("Allow notifications to let us remind you.")
-                        .font(CampyFonts.body())
-                        .foregroundColor(CampyColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.top, CampySpacing.lg)
+                    // Text and buttons at bottom
+                    VStack(spacing: CampySpacing.md) {
+                        Text("Your friends are right here.\nPut the phone down and don't miss this moment.")
+                            .font(CampyFonts.header(24))
+                            .foregroundColor(CampyColors.textPrimary)
+                            .multilineTextAlignment(.center)
 
-                Spacer()
+                        Text("Allow notifications to let us remind you.")
+                            .font(CampyFonts.body())
+                            .foregroundColor(CampyColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.lg)
 
-                VStack(spacing: CampySpacing.md) {
-                    PillButton(primary: "Allow") {
-                        Task {
-                            await viewModel.requestNotificationPermission()
+                    VStack(spacing: CampySpacing.md) {
+                        PillButton(primary: "Allow") {
+                            Task {
+                                await viewModel.requestNotificationPermission()
+                            }
+                        }
+
+                        PillButton(outline: "Later") {
+                            viewModel.skipNotifications()
                         }
                     }
-
-                    PillButton(outline: "Later") {
-                        viewModel.skipNotifications()
-                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.xxl)
                 }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.bottom, CampySpacing.xxl)
             }
         }
     }
@@ -136,36 +145,41 @@ struct OnboardingPage3View: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Image fills top portion
+            ZStack {
+                // Full screen background image
                 Image("onboarding-3")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height * 0.55)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    .ignoresSafeArea()
 
-                // Content at bottom
-                VStack(spacing: CampySpacing.md) {
-                    Text("Create a challenge with friends")
-                        .font(CampyFonts.header(28))
-                        .foregroundColor(CampyColors.textPrimary)
-                        .multilineTextAlignment(.center)
+                // Content overlay
+                VStack(spacing: 0) {
+                    // Text at top
+                    VStack(spacing: CampySpacing.md) {
+                        Text("Create a challenge with friends")
+                            .font(CampyFonts.header(28))
+                            .foregroundColor(CampyColors.textPrimary)
+                            .multilineTextAlignment(.center)
 
-                    Text("Connect with nearby friends and start a phone-free challenge together.")
-                        .font(CampyFonts.body())
-                        .foregroundColor(CampyColors.textSecondary)
-                        .multilineTextAlignment(.center)
+                        Text("Connect with nearby friends and start a phone-free challenge together.")
+                            .font(CampyFonts.body())
+                            .foregroundColor(CampyColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.top, CampySpacing.xxl)
+
+                    Spacer()
+
+                    // Button at bottom
+                    PillButton(primary: "Next") {
+                        viewModel.nextPage()
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.xxl)
                 }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.top, CampySpacing.lg)
-
-                Spacer()
-
-                PillButton(primary: "Next") {
-                    viewModel.nextPage()
-                }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.bottom, CampySpacing.xxl)
             }
         }
     }
@@ -177,36 +191,41 @@ struct OnboardingPage4View: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Image fills top portion
+            ZStack {
+                // Full screen background image
                 Image("onboarding-4")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height * 0.55)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    .ignoresSafeArea()
 
-                // Content at bottom
-                VStack(spacing: CampySpacing.md) {
-                    Text("Phones stay down.\nFirst phone pays.")
-                        .font(CampyFonts.header(28))
-                        .foregroundColor(CampyColors.textPrimary)
-                        .multilineTextAlignment(.center)
+                // Content overlay
+                VStack(spacing: 0) {
+                    // Text at top
+                    VStack(spacing: CampySpacing.md) {
+                        Text("Phones stay down.\nFirst phone pays.")
+                            .font(CampyFonts.header(28))
+                            .foregroundColor(CampyColors.textPrimary)
+                            .multilineTextAlignment(.center)
 
-                    Text("The first person to leave the app loses and pays the others.")
-                        .font(CampyFonts.body())
-                        .foregroundColor(CampyColors.textSecondary)
-                        .multilineTextAlignment(.center)
+                        Text("The first person to leave the app loses and pays the others.")
+                            .font(CampyFonts.body())
+                            .foregroundColor(CampyColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.top, CampySpacing.xxl)
+
+                    Spacer()
+
+                    // Button at bottom
+                    PillButton(primary: "Next") {
+                        viewModel.nextPage()
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.xxl)
                 }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.top, CampySpacing.lg)
-
-                Spacer()
-
-                PillButton(primary: "Next") {
-                    viewModel.nextPage()
-                }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.bottom, CampySpacing.xxl)
             }
         }
     }
@@ -219,37 +238,42 @@ struct OnboardingPage5View: View {
 
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 0) {
-                // Image fills top portion
+            ZStack {
+                // Full screen background image
                 Image("onboarding-5")
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geometry.size.width, height: geometry.size.height * 0.55)
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                     .clipped()
+                    .ignoresSafeArea()
 
-                // Content at bottom
-                VStack(spacing: CampySpacing.md) {
-                    Text("Stay present together")
-                        .font(CampyFonts.header(28))
-                        .foregroundColor(CampyColors.textPrimary)
-                        .multilineTextAlignment(.center)
+                // Content overlay
+                VStack(spacing: 0) {
+                    // Text at top
+                    VStack(spacing: CampySpacing.md) {
+                        Text("Stay present together")
+                            .font(CampyFonts.header(28))
+                            .foregroundColor(CampyColors.textPrimary)
+                            .multilineTextAlignment(.center)
 
-                    Text("Make memories that matter. Put the phones away and enjoy the moment.")
-                        .font(CampyFonts.body())
-                        .foregroundColor(CampyColors.textSecondary)
-                        .multilineTextAlignment(.center)
+                        Text("Make memories that matter. Put the phones away and enjoy the moment.")
+                            .font(CampyFonts.body())
+                            .foregroundColor(CampyColors.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.top, CampySpacing.xxl)
+
+                    Spacer()
+
+                    // Button at bottom
+                    PillButton(primary: "Get Started") {
+                        viewModel.completeOnboarding()
+                        onComplete()
+                    }
+                    .padding(.horizontal, CampySpacing.xl)
+                    .padding(.bottom, CampySpacing.xxl)
                 }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.top, CampySpacing.lg)
-
-                Spacer()
-
-                PillButton(primary: "Get Started") {
-                    viewModel.completeOnboarding()
-                    onComplete()
-                }
-                .padding(.horizontal, CampySpacing.xl)
-                .padding(.bottom, CampySpacing.xxl)
             }
         }
     }
