@@ -31,7 +31,7 @@ struct BalanceView: View {
                 .font(CampyFonts.body())
                 .foregroundColor(CampyColors.textPrimary)
 
-            coinIcon(size: 48)
+            coinIcon(size: 32)
         }
         .padding(.horizontal, CampySpacing.md)
         .padding(.vertical, CampySpacing.sm)

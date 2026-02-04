@@ -66,7 +66,7 @@ struct OnboardingPage1View: View {
 
                         Text("Some memories are better lived than scrolled.")
                             .font(CampyFonts.body())
-                            .foregroundColor(CampyColors.textSecondary)
+                            .foregroundColor(CampyColors.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, CampySpacing.xl)
@@ -114,7 +114,7 @@ struct OnboardingPage2View: View {
 
                         Text("Allow notifications to let us remind you.")
                             .font(CampyFonts.body())
-                            .foregroundColor(CampyColors.textSecondary)
+                            .foregroundColor(CampyColors.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, CampySpacing.xl)
@@ -165,7 +165,7 @@ struct OnboardingPage3View: View {
 
                         Text("Connect with nearby friends and start a phone-free challenge together.")
                             .font(CampyFonts.body())
-                            .foregroundColor(CampyColors.textSecondary)
+                            .foregroundColor(CampyColors.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, CampySpacing.xl)
@@ -211,7 +211,7 @@ struct OnboardingPage4View: View {
 
                         Text("The first person to leave the app loses and pays the others.")
                             .font(CampyFonts.body())
-                            .foregroundColor(CampyColors.textSecondary)
+                            .foregroundColor(CampyColors.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, CampySpacing.xl)
@@ -258,7 +258,7 @@ struct OnboardingPage5View: View {
 
                         Text("Make memories that matter. Put the phones away and enjoy the moment.")
                             .font(CampyFonts.body())
-                            .foregroundColor(CampyColors.textSecondary)
+                            .foregroundColor(CampyColors.textPrimary)
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, CampySpacing.xl)
