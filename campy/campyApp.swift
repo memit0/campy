@@ -48,9 +48,9 @@ struct CampyApp: App {
     }
 
     private func setupManagers() {
-        // TODO: CloudKit disabled temporarily - crashes on init
-        // cloudKitManager.initialize()
-        // walletManager.cloudKitManager = cloudKitManager
+        // Initialize CloudKit with comprehensive error handling
+        // CloudKit initialization is now safe and won't crash - errors are logged and handled gracefully
+        initializeCloudKit()
 
         // Connect managers to each other
         gameManager.bluetoothManager = bluetoothManager
@@ -69,6 +69,29 @@ struct CampyApp: App {
         #if DEBUG
         if walletManager.balance == 0 {
             walletManager.loadDemoData()
+        }
+        #endif
+    }
+
+    private func initializeCloudKit() {
+        #if DEBUG
+        print("☁️ [App] Starting CloudKit initialization...")
+        #endif
+
+        // Initialize CloudKit - this is now safe and handles all errors gracefully
+        cloudKitManager.initialize()
+
+        // Connect CloudKit to wallet manager for data sync
+        walletManager.cloudKitManager = cloudKitManager
+
+        #if DEBUG
+        // Log the initialization state for debugging
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [cloudKitManager] in
+            print("☁️ [App] CloudKit state after 1s: \(cloudKitManager.initializationState)")
+            print("☁️ [App] CloudKit available: \(cloudKitManager.isAvailable)")
+            if let error = cloudKitManager.lastError {
+                print("☁️ [App] CloudKit error: \(error.localizedDescription)")
+            }
         }
         #endif
     }
