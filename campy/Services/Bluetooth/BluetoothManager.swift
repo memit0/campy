@@ -46,9 +46,6 @@ class BluetoothManager: NSObject {
     private(set) var discoveredSessions: [NearbySession] = []
 
     // Identifiers
-    private let serviceUUID = CBUUID(string: "A1B2C3D4-E5F6-7890-ABCD-EF1234567890")
-    private let characteristicUUID = CBUUID(string: "B2C3D4E5-F6A7-8901-BCDE-F12345678901")
-
     var localPeerId: String {
         if let id = UserDefaults.standard.string(forKey: "bluetoothPeerId") {
             return id
@@ -63,11 +60,16 @@ class BluetoothManager: NSObject {
     private var peripheralManager: CBPeripheralManager!
     private var discoveredPeripherals: [CBPeripheral] = []
     private var connectedPeripheral: CBPeripheral?
-    private var characteristic: CBMutableCharacteristic?
+    
+    // Characteristics
+    private var sessionCharacteristic: CBMutableCharacteristic?
+    private var controlCharacteristic: CBMutableCharacteristic?
+    private var heartbeatCharacteristic: CBMutableCharacteristic?
 
     // Session data
     private var currentSession: Session?
-    private var messageBuffer = Data()
+    private var heartbeatTimer: Timer?
+    private var lastHeartbeatTime: Date?
 
     // Callbacks
     var onSessionDiscovered: ((NearbySession) -> Void)?
@@ -91,46 +93,93 @@ class BluetoothManager: NSObject {
 
         currentSession = session
 
-        // Create characteristic for data transfer
-        characteristic = CBMutableCharacteristic(
-            type: characteristicUUID,
-            properties: [.read, .write, .notify],
+        // 1. Session Characteristic (Read/Notify)
+        sessionCharacteristic = CBMutableCharacteristic(
+            type: BluetoothConstants.sessionCharacteristicUUID,
+            properties: [.read, .notify],
             value: nil,
-            permissions: [.readable, .writeable]
+            permissions: [.readable]
+        )
+        
+        // 2. Control Characteristic (Write/Notify)
+        controlCharacteristic = CBMutableCharacteristic(
+            type: BluetoothConstants.controlCharacteristicUUID,
+            properties: [.write, .notify],
+            value: nil,
+            permissions: [.writeable]
+        )
+        
+        // 3. Heartbeat Characteristic (Notify)
+        heartbeatCharacteristic = CBMutableCharacteristic(
+            type: BluetoothConstants.heartbeatCharacteristicUUID,
+            properties: [.notify],
+            value: nil,
+            permissions: [.readable]
         )
 
         // Create service
-        let service = CBMutableService(type: serviceUUID, primary: true)
-        service.characteristics = [characteristic!]
+        let service = CBMutableService(type: BluetoothConstants.serviceUUID, primary: true)
+        service.characteristics = [
+            sessionCharacteristic!,
+            controlCharacteristic!,
+            heartbeatCharacteristic!
+        ]
 
         peripheralManager.add(service)
 
-        // Start advertising
+        // Encode session info into local name for discovery
+        // Format: CMP|HostName|Duration|Bet|Count
+        // Note: Bluetooth Local Name is limited in length, so we keep it short
+        let hostName = session.participants.first(where: { $0.isHost })?.displayName ?? "Host"
+        let safeHostName = String(hostName.prefix(10))
+        let localName = "CMP|\(safeHostName)|\(session.durationMinutes)|\(session.betAmount)|\(session.participants.count)"
+        
         let advertisementData: [String: Any] = [
-            CBAdvertisementDataServiceUUIDsKey: [serviceUUID],
-            CBAdvertisementDataLocalNameKey: "Campy-\(session.id.uuidString.prefix(8))"
+            CBAdvertisementDataServiceUUIDsKey: [BluetoothConstants.serviceUUID],
+            CBAdvertisementDataLocalNameKey: localName
         ]
+        
         peripheralManager.startAdvertising(advertisementData)
         isAdvertising = true
+        
+        startHeartbeat()
     }
 
     func stopAdvertising() {
+        stopHeartbeat()
         peripheralManager.stopAdvertising()
         peripheralManager.removeAllServices()
         isAdvertising = false
     }
 
-    func broadcastGameStart() {
-        guard let session = currentSession else { return }
+        func broadcastGameStart() {
 
-        let message = BluetoothMessage(type: .gameStart, senderId: localPeerId)
-        broadcastMessage(message)
+            guard currentSession != nil else { return }
+
+            let message = BluetoothMessage(type: .gameStart, senderId: localPeerId)
+
+            broadcastControlMessage(message)
+
+        }
+    
+    func broadcastGameEnd(loserId: UUID?) {
+        let payload = try? JSONEncoder().encode(loserId)
+        let message = BluetoothMessage(type: .gameEnd, senderId: localPeerId, payload: payload)
+        broadcastControlMessage(message)
     }
-
-    func broadcastMessage(_ message: BluetoothMessage) {
+    
+    private func broadcastControlMessage(_ message: BluetoothMessage) {
         guard let data = try? JSONEncoder().encode(message),
-              let characteristic = characteristic else { return }
-
+              let characteristic = controlCharacteristic else { return }
+        
+        peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: nil)
+    }
+    
+    private func updateSessionInfo() {
+        guard let session = currentSession,
+              let data = try? JSONEncoder().encode(session),
+              let characteristic = sessionCharacteristic else { return }
+        
         peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: nil)
     }
 
@@ -140,7 +189,7 @@ class BluetoothManager: NSObject {
         guard centralManager.state == .poweredOn else { return }
 
         discoveredSessions.removeAll()
-        centralManager.scanForPeripherals(withServices: [serviceUUID], options: [
+        centralManager.scanForPeripherals(withServices: [BluetoothConstants.serviceUUID], options: [
             CBCentralManagerScanOptionAllowDuplicatesKey: false
         ])
         isScanning = true
@@ -167,40 +216,39 @@ class BluetoothManager: NSObject {
         connectedPeripheral = nil
     }
 
-    // MARK: - Message Handling
+    // MARK: - Message Handling & Heartbeat
 
     func reportLoss(participantId: UUID) {
         let payload = try? JSONEncoder().encode(participantId)
         let message = BluetoothMessage(type: .loss, senderId: localPeerId, payload: payload)
 
         if isAdvertising {
-            broadcastMessage(message)
+            // Host reporting loss
+            broadcastControlMessage(message)
+            onGameEnded?(participantId)
         } else if let peripheral = connectedPeripheral,
-                  let characteristic = peripheral.services?.first?.characteristics?.first {
+                  let characteristic = peripheral.services?.first?.characteristics?.first(where: { $0.uuid == BluetoothConstants.controlCharacteristicUUID }) {
+            // Client reporting loss to host
             let data = try? JSONEncoder().encode(message)
             peripheral.writeValue(data ?? Data(), for: characteristic, type: .withResponse)
         }
     }
 
-    private func handleReceivedMessage(_ message: BluetoothMessage) {
+    private func handleReceivedControlMessage(_ message: BluetoothMessage) {
         switch message.type {
-        case .sessionInfo:
-            if let payload = message.payload,
-               let session = try? JSONDecoder().decode(Session.self, from: payload) {
-                currentSession = session
-                onSessionReceived?(session)
-            }
-
         case .participantJoined:
             if let payload = message.payload,
                let participant = try? JSONDecoder().decode(SessionParticipant.self, from: payload) {
                 onParticipantJoined?(participant)
+                // Host updates session info for everyone
+                updateSessionInfo()
             }
 
         case .participantLeft:
             if let payload = message.payload,
                let participantId = try? JSONDecoder().decode(UUID.self, from: payload) {
                 onParticipantLeft?(participantId)
+                updateSessionInfo()
             }
 
         case .gameStart:
@@ -217,12 +265,28 @@ class BluetoothManager: NSObject {
         case .loss:
             if let payload = message.payload,
                let participantId = try? JSONDecoder().decode(UUID.self, from: payload) {
+                // Host received loss report
                 onGameEnded?(participantId)
+                // Broadcast to others
+                broadcastGameEnd(loserId: participantId)
             }
 
-        case .ping, .pong:
+        default:
             break
         }
+    }
+    
+    private func startHeartbeat() {
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: BluetoothConstants.heartbeatInterval, repeats: true) { [weak self] _ in
+            guard let self = self, let characteristic = self.heartbeatCharacteristic else { return }
+            let data = Data([0x01]) // Simple ping
+            self.peripheralManager.updateValue(data, for: characteristic, onSubscribedCentrals: nil)
+        }
+    }
+    
+    private func stopHeartbeat() {
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
     }
 }
 
@@ -234,20 +298,30 @@ extension BluetoothManager: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                        advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        // Extract session info from advertisement
+        
+        // Parse dynamic advertisement data
+        // Format: CMP|HostName|Duration|Bet|Count
         guard let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String,
-              name.hasPrefix("Campy-") else { return }
+              name.hasPrefix("CMP|") else { return }
 
+        let components = name.components(separatedBy: "|")
+        guard components.count >= 5 else { return }
+        
+        let hostName = components[1]
+        let duration = Int(components[2]) ?? 15
+        let bet = Int(components[3]) ?? 15
+        let count = Int(components[4]) ?? 1
+        
         if !discoveredPeripherals.contains(where: { $0.identifier == peripheral.identifier }) {
             discoveredPeripherals.append(peripheral)
 
             let session = NearbySession(
-                id: UUID(),
-                hostName: "Player",
+                id: UUID(), // We don't know the exact UUID yet, but that's okay for discovery
+                hostName: hostName,
                 hostPeerId: peripheral.identifier.uuidString,
-                durationMinutes: 15,
-                betAmount: 15,
-                participantCount: 1,
+                durationMinutes: duration,
+                betAmount: bet,
+                participantCount: count,
                 signalStrength: RSSI.intValue
             )
             discoveredSessions.append(session)
@@ -258,7 +332,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         connectedPeripheral = peripheral
         peripheral.delegate = self
-        peripheral.discoverServices([serviceUUID])
+        peripheral.discoverServices([BluetoothConstants.serviceUUID])
         connectedPeers.append(peripheral.identifier.uuidString)
     }
 
@@ -280,7 +354,13 @@ extension BluetoothManager: CBPeripheralDelegate {
         guard let services = peripheral.services else { return }
 
         for service in services {
-            peripheral.discoverCharacteristics([characteristicUUID], for: service)
+            if service.uuid == BluetoothConstants.serviceUUID {
+                peripheral.discoverCharacteristics([
+                    BluetoothConstants.sessionCharacteristicUUID,
+                    BluetoothConstants.controlCharacteristicUUID,
+                    BluetoothConstants.heartbeatCharacteristicUUID
+                ], for: service)
+            }
         }
     }
 
@@ -288,14 +368,16 @@ extension BluetoothManager: CBPeripheralDelegate {
         guard let characteristics = service.characteristics else { return }
 
         for characteristic in characteristics {
-            if characteristic.uuid == characteristicUUID {
+            if characteristic.uuid == BluetoothConstants.sessionCharacteristicUUID {
                 peripheral.setNotifyValue(true, for: characteristic)
-
-                // Request session info
-                let message = BluetoothMessage(type: .ping, senderId: localPeerId)
-                if let data = try? JSONEncoder().encode(message) {
-                    peripheral.writeValue(data, for: characteristic, type: .withResponse)
-                }
+                peripheral.readValue(for: characteristic) // Initial read
+            } else if characteristic.uuid == BluetoothConstants.controlCharacteristicUUID {
+                peripheral.setNotifyValue(true, for: characteristic)
+                // Send join request
+                // Note: We need the actual participant object here.
+                // Assuming GameManager will call a method to send this after connection is established.
+            } else if characteristic.uuid == BluetoothConstants.heartbeatCharacteristicUUID {
+                peripheral.setNotifyValue(true, for: characteristic)
             }
         }
     }
@@ -303,8 +385,23 @@ extension BluetoothManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic, error: Error?) {
         guard let data = characteristic.value else { return }
 
-        if let message = try? JSONDecoder().decode(BluetoothMessage.self, from: data) {
-            handleReceivedMessage(message)
+        switch characteristic.uuid {
+        case BluetoothConstants.sessionCharacteristicUUID:
+            if let session = try? JSONDecoder().decode(Session.self, from: data) {
+                currentSession = session
+                onSessionReceived?(session)
+            }
+            
+        case BluetoothConstants.controlCharacteristicUUID:
+            if let message = try? JSONDecoder().decode(BluetoothMessage.self, from: data) {
+                handleReceivedControlMessage(message)
+            }
+            
+        case BluetoothConstants.heartbeatCharacteristicUUID:
+            lastHeartbeatTime = Date()
+            
+        default:
+            break
         }
     }
 }
@@ -317,16 +414,11 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
 
     func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveWrite requests: [CBATTRequest]) {
         for request in requests {
-            if let data = request.value,
+            if request.characteristic.uuid == BluetoothConstants.controlCharacteristicUUID,
+               let data = request.value,
                let message = try? JSONDecoder().decode(BluetoothMessage.self, from: data) {
-                handleReceivedMessage(message)
-
-                // If ping, respond with session info
-                if message.type == .ping, let session = currentSession {
-                    let payload = try? JSONEncoder().encode(session)
-                    let response = BluetoothMessage(type: .sessionInfo, senderId: localPeerId, payload: payload)
-                    broadcastMessage(response)
-                }
+                
+                handleReceivedControlMessage(message)
             }
             peripheral.respond(to: request, withResult: .success)
         }
@@ -335,15 +427,36 @@ extension BluetoothManager: CBPeripheralManagerDelegate {
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didSubscribeTo characteristic: CBCharacteristic) {
         connectedPeers.append(central.identifier.uuidString)
 
-        // Send session info to new subscriber
-        if let session = currentSession {
-            let payload = try? JSONEncoder().encode(session)
-            let message = BluetoothMessage(type: .sessionInfo, senderId: localPeerId, payload: payload)
-            broadcastMessage(message)
+        // If session char, send current session
+        if characteristic.uuid == BluetoothConstants.sessionCharacteristicUUID,
+           let session = currentSession,
+           let data = try? JSONEncoder().encode(session),
+           let sessionChar = self.sessionCharacteristic {
+             peripheralManager.updateValue(data, for: sessionChar, onSubscribedCentrals: [central])
         }
     }
 
     func peripheralManager(_ peripheral: CBPeripheralManager, central: CBCentral, didUnsubscribeFrom characteristic: CBCharacteristic) {
-        connectedPeers.removeAll { $0 == central.identifier.uuidString }
+        if characteristic.uuid == BluetoothConstants.sessionCharacteristicUUID {
+            connectedPeers.removeAll { $0 == central.identifier.uuidString }
+        }
+    }
+    
+    // Read request for Session Characteristic
+    func peripheralManager(_ peripheral: CBPeripheralManager, didReceiveRead request: CBATTRequest) {
+        if request.characteristic.uuid == BluetoothConstants.sessionCharacteristicUUID,
+           let session = currentSession,
+           let data = try? JSONEncoder().encode(session) {
+            
+            if request.offset > data.count {
+                peripheral.respond(to: request, withResult: .invalidOffset)
+                return
+            }
+            
+            request.value = data.subdata(in: request.offset..<data.count)
+            peripheral.respond(to: request, withResult: .success)
+        } else {
+            peripheral.respond(to: request, withResult: .attributeNotFound)
+        }
     }
 }
