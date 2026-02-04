@@ -25,20 +25,23 @@ struct WalletView: View {
                     .padding(.horizontal, CampySpacing.lg)
                     .padding(.top, CampySpacing.md)
 
-                // Balance section
-                balanceSection
-                    .padding(.top, CampySpacing.xl)
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Balance section
+                        balanceSection
+                            .padding(.top, CampySpacing.xl)
 
-                // Action buttons
-                actionButtons
-                    .padding(.top, CampySpacing.lg)
-                    .padding(.horizontal, CampySpacing.lg)
+                        // Action buttons
+                        actionButtons
+                            .padding(.top, CampySpacing.lg)
+                            .padding(.horizontal, CampySpacing.lg)
 
-                // Transaction history
-                transactionSection
-                    .padding(.top, CampySpacing.xl)
-
-                Spacer()
+                        // Transaction history
+                        transactionSection
+                            .padding(.top, CampySpacing.xl)
+                            .padding(.bottom, CampySpacing.xl)
+                    }
+                }
             }
         }
         .onAppear {
@@ -120,14 +123,12 @@ struct WalletView: View {
     }
 
     private var transactionListView: some View {
-        ScrollView {
-            LazyVStack(spacing: CampySpacing.sm) {
-                ForEach(walletManager.transactions) { transaction in
-                    TransactionRow(transaction: transaction)
-                }
+        LazyVStack(spacing: CampySpacing.sm) {
+            ForEach(walletManager.transactions) { transaction in
+                TransactionRow(transaction: transaction)
             }
-            .padding(.horizontal, CampySpacing.lg)
         }
+        .padding(.horizontal, CampySpacing.lg)
     }
 }
 
