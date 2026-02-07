@@ -17,6 +17,7 @@ enum GameState: Equatable {
 }
 
 @Observable
+@MainActor
 class GameManager {
     // State
     private(set) var state: GameState = .idle

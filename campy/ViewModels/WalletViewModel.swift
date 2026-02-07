@@ -9,6 +9,7 @@ import SwiftUI
 import StoreKit
 
 @Observable
+@MainActor
 class WalletViewModel {
     var showAddFunds = false
     var showWithdraw = false
@@ -54,19 +55,15 @@ class WalletViewModel {
 
         do {
             let success = try await storeKitManager.purchase(productId: package.id)
-            await MainActor.run {
-                isLoading = false
-                if success {
-                    walletManager?.addCoins(amount: package.coins, description: "Added funds via Apple Pay")
-                    purchaseSuccess = true
-                    showAddFunds = false
-                }
+            isLoading = false
+            if success {
+                walletManager?.addCoins(amount: package.coins, description: "Added funds via Apple Pay")
+                purchaseSuccess = true
+                showAddFunds = false
             }
         } catch {
-            await MainActor.run {
-                isLoading = false
-                self.error = error.localizedDescription
-            }
+            isLoading = false
+            self.error = error.localizedDescription
         }
     }
 
@@ -75,12 +72,10 @@ class WalletViewModel {
 
         let products = await storeKitManager.loadProducts()
 
-        await MainActor.run {
-            // Match products to packages
-            for (index, package) in coinPackages.enumerated() {
-                if let product = products.first(where: { $0.id == package.id }) {
-                    coinPackages[index].product = product
-                }
+        // Match products to packages
+        for (index, package) in coinPackages.enumerated() {
+            if let product = products.first(where: { $0.id == package.id }) {
+                coinPackages[index].product = product
             }
         }
     }
