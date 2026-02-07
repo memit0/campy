@@ -31,10 +31,15 @@ class GameManager {
 
     private var timerCancellable: AnyCancellable?
     private var countdownCancellable: AnyCancellable?
+    private var watchdogCancellable: AnyCancellable?
+    private static let watchdogIntervalSeconds: TimeInterval = 5
+    private static let watchdogGraceSeconds: TimeInterval = 10
 
     // MARK: - Session Management
 
     func createSession(duration: Int, betAmount: Int) -> Session? {
+        guard duration > 0 && CampyOptions.timeOptions.contains(duration) else { return nil }
+        guard betAmount > 0 && CampyOptions.betOptions.contains(betAmount) else { return nil }
         guard let peerId = bluetoothManager?.localPeerId else { return nil }
         guard walletManager?.hasEnoughBalance(for: betAmount) == true else { return nil }
 
@@ -114,6 +119,7 @@ class GameManager {
 
         // Start timer
         startTimer()
+        startWatchdog()
     }
 
     func reportLoss() {
@@ -182,11 +188,72 @@ class GameManager {
         timerCancellable = nil
         countdownCancellable?.cancel()
         countdownCancellable = nil
+        watchdogCancellable?.cancel()
+        watchdogCancellable = nil
     }
 
     private func timerCompleted() {
         stopTimer()
         endGame(loserId: nil, isLocalLoss: false)
+    }
+
+    private func startWatchdog() {
+        watchdogCancellable = Timer.publish(
+            every: Self.watchdogIntervalSeconds, on: .main, in: .common
+        )
+        .autoconnect()
+        .sink { [weak self] _ in
+            self?.checkWatchdog()
+        }
+    }
+
+    private func checkWatchdog() {
+        guard state == .playing,
+              let session = currentSession,
+              let startedAt = session.startedAt else { return }
+
+        let elapsed = Date().timeIntervalSince(startedAt)
+        let expectedDuration = TimeInterval(session.durationMinutes * 60)
+
+        // If wall-clock time says the game should have ended (with grace period), force completion
+        if elapsed >= expectedDuration + Self.watchdogGraceSeconds {
+            timerCompleted()
+        }
+    }
+
+    /// Allows users to manually end a stuck game and recover their bet
+    func forceEndStuckGame() {
+        guard state == .playing else { return }
+        stopTimer()
+        appLifecycleManager?.stopMonitoring()
+
+        guard var session = currentSession else { return }
+        session.end()
+        currentSession = session
+
+        // Refund the bet since this is an abnormal end
+        walletManager?.refund(amount: session.betAmount, reason: "Session recovery")
+        state = .ended(winner: false)
+    }
+
+    /// Check and recover from a stuck game state on app launch
+    func recoverIfNeeded() {
+        guard state == .playing,
+              let session = currentSession,
+              let startedAt = session.startedAt else { return }
+
+        let elapsed = Date().timeIntervalSince(startedAt)
+        let expectedDuration = TimeInterval(session.durationMinutes * 60)
+
+        if elapsed >= expectedDuration {
+            // Game should have ended already — complete it
+            timerCompleted()
+        } else {
+            // Game is still valid — resync the remaining seconds from wall clock
+            remainingSeconds = max(0, Int(expectedDuration - elapsed))
+            startTimer()
+            startWatchdog()
+        }
     }
 
     // MARK: - Helpers

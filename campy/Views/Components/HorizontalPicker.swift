@@ -28,6 +28,7 @@ struct HorizontalPicker<T: Hashable>: View {
                             )
                             .id(index)
                             .onTapGesture {
+                                guard index >= 0 && index < items.count else { return }
                                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                                     selectedIndex = index
                                 }
@@ -38,8 +39,12 @@ struct HorizontalPicker<T: Hashable>: View {
                 }
                 .onChange(of: selectedIndex) { _, newValue in
                     if let newValue = newValue {
+                        let clampedIndex = max(0, min(newValue, items.count - 1))
+                        if clampedIndex != newValue {
+                            selectedIndex = clampedIndex
+                        }
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                            proxy.scrollTo(newValue, anchor: .center)
+                            proxy.scrollTo(clampedIndex, anchor: .center)
                         }
                     }
                 }
