@@ -100,8 +100,27 @@ class GameManager {
         guard var session = currentSession else { return }
         session.start()
         currentSession = session
+
+        // Broadcast game start with session (includes startedAt timestamp)
+        // This must happen before starting the local timer so peers receive
+        // the authoritative start time as early as possible.
+        bluetoothManager?.broadcastGameStart(session: session)
+
+        beginPlaying(session: session)
+    }
+
+    /// Start playing using the given session's startedAt as the authoritative time anchor.
+    /// Called by both the host (after startGame) and joining peers (after receiving gameStart).
+    private func beginPlaying(session: Session) {
         state = .playing
-        remainingSeconds = session.durationMinutes * 60
+
+        // Calculate remaining seconds from the authoritative startedAt timestamp
+        // to stay synchronized across devices regardless of message delivery latency.
+        if let remaining = session.remainingTime {
+            remainingSeconds = Int(remaining.rounded(.up))
+        } else {
+            remainingSeconds = session.durationMinutes * 60
+        }
 
         // Deduct bet
         walletManager?.deductBet(amount: session.betAmount)
@@ -109,11 +128,8 @@ class GameManager {
         // Start app lifecycle monitoring
         appLifecycleManager?.startMonitoring()
 
-        // Broadcast game start
-        bluetoothManager?.broadcastGameStart()
-
         // Start timer
-        startTimer()
+        startTimer(anchoredTo: session)
     }
 
     func reportLoss() {
@@ -164,14 +180,25 @@ class GameManager {
 
     // MARK: - Timer
 
-    private func startTimer() {
+    /// Anchored session used to periodically correct timer drift.
+    private var anchoredSession: Session?
+
+    private func startTimer(anchoredTo session: Session) {
+        anchoredSession = session
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                if self.remainingSeconds > 0 {
+
+                // Recalculate from the authoritative startedAt to correct any drift
+                if let remaining = self.anchoredSession?.remainingTime {
+                    self.remainingSeconds = Int(remaining.rounded(.up))
+                } else if self.remainingSeconds > 0 {
                     self.remainingSeconds -= 1
-                } else {
+                }
+
+                if self.remainingSeconds <= 0 {
+                    self.remainingSeconds = 0
                     self.timerCompleted()
                 }
             }
@@ -182,6 +209,7 @@ class GameManager {
         timerCancellable = nil
         countdownCancellable?.cancel()
         countdownCancellable = nil
+        anchoredSession = nil
     }
 
     private func timerCompleted() {
@@ -226,8 +254,15 @@ class GameManager {
             }
         }
 
-        bluetoothManager?.onGameStarted = { [weak self] in
-            self?.startGame()
+        bluetoothManager?.onGameStarted = { [weak self] session in
+            guard let self = self else { return }
+            if let session = session {
+                // Joining peer: use the host's session with authoritative startedAt
+                self.currentSession = session
+                self.beginPlaying(session: session)
+            } else {
+                self.startGame()
+            }
         }
 
         bluetoothManager?.onGameEnded = { [weak self] loserId in

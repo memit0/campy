@@ -73,7 +73,7 @@ class BluetoothManager: NSObject {
     var onSessionDiscovered: ((NearbySession) -> Void)?
     var onParticipantJoined: ((SessionParticipant) -> Void)?
     var onParticipantLeft: ((UUID) -> Void)?
-    var onGameStarted: (() -> Void)?
+    var onGameStarted: ((Session?) -> Void)?
     var onGameEnded: ((UUID?) -> Void)?
     var onSessionReceived: ((Session) -> Void)?
     var onError: ((Error) -> Void)?
@@ -120,10 +120,10 @@ class BluetoothManager: NSObject {
         isAdvertising = false
     }
 
-    func broadcastGameStart() {
-        guard let session = currentSession else { return }
-
-        let message = BluetoothMessage(type: .gameStart, senderId: localPeerId)
+    func broadcastGameStart(session: Session) {
+        currentSession = session
+        let payload = try? JSONEncoder().encode(session)
+        let message = BluetoothMessage(type: .gameStart, senderId: localPeerId, payload: payload)
         broadcastMessage(message)
     }
 
@@ -204,7 +204,11 @@ class BluetoothManager: NSObject {
             }
 
         case .gameStart:
-            onGameStarted?()
+            var session: Session?
+            if let payload = message.payload {
+                session = try? JSONDecoder().decode(Session.self, from: payload)
+            }
+            onGameStarted?(session)
 
         case .gameEnd:
             if let payload = message.payload {

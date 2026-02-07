@@ -96,11 +96,7 @@ class SessionViewModel {
 
         currentSession = session
 
-        // Initialize timer with selected duration and start it
-        remainingSeconds = duration * 60
-        startTimer()
-
-        // Start advertising
+        // Start advertising — timer will start when the game begins (not during session setup)
         bluetoothManager?.startAdvertising(session: session)
     }
 
@@ -124,14 +120,25 @@ class SessionViewModel {
         guard var session = currentSession else { return }
         session.start()
         currentSession = session
-        remainingSeconds = session.durationMinutes * 60
-        startTimer()
+
+        // Notify all participants with the session (includes startedAt timestamp)
+        bluetoothManager?.broadcastGameStart(session: session)
+
+        beginPlaying(session: session)
+    }
+
+    /// Start playing using the session's startedAt as the authoritative time anchor.
+    private func beginPlaying(session: Session) {
+        // Calculate remaining seconds from the authoritative startedAt timestamp
+        if let remaining = session.remainingTime {
+            remainingSeconds = Int(remaining.rounded(.up))
+        } else {
+            remainingSeconds = session.durationMinutes * 60
+        }
+        startTimer(anchoredTo: session)
 
         // Deduct bet from wallet
         walletManager?.deductBet(amount: session.betAmount)
-
-        // Notify all participants
-        bluetoothManager?.broadcastGameStart()
     }
 
     func reportLoss() {
@@ -174,15 +181,26 @@ class SessionViewModel {
 
     // MARK: - Timer
 
-    private func startTimer() {
+    /// Anchored session used to periodically correct timer drift.
+    private var anchoredSession: Session?
+
+    private func startTimer(anchoredTo session: Session) {
+        anchoredSession = session
         isTimerRunning = true
         timerCancellable = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 guard let self = self else { return }
-                if self.remainingSeconds > 0 {
+
+                // Recalculate from the authoritative startedAt to correct drift
+                if let remaining = self.anchoredSession?.remainingTime {
+                    self.remainingSeconds = Int(remaining.rounded(.up))
+                } else if self.remainingSeconds > 0 {
                     self.remainingSeconds -= 1
-                } else {
+                }
+
+                if self.remainingSeconds <= 0 {
+                    self.remainingSeconds = 0
                     self.timerCompleted()
                 }
             }
@@ -192,6 +210,7 @@ class SessionViewModel {
         isTimerRunning = false
         timerCancellable?.cancel()
         timerCancellable = nil
+        anchoredSession = nil
     }
 
     private func timerCompleted() {
@@ -213,15 +232,18 @@ class SessionViewModel {
         }
     }
 
-    func onGameStarted() {
-        guard var session = currentSession else { return }
-        session.start()
-        currentSession = session
-        remainingSeconds = session.durationMinutes * 60
-        startTimer()
-
-        // Deduct bet
-        walletManager?.deductBet(amount: session.betAmount)
+    func onGameStarted(with receivedSession: Session?) {
+        // Use the host's session (with authoritative startedAt) if available
+        if let receivedSession = receivedSession {
+            currentSession = receivedSession
+            beginPlaying(session: receivedSession)
+        } else {
+            // Fallback: no session in message, start locally
+            guard var session = currentSession else { return }
+            session.start()
+            currentSession = session
+            beginPlaying(session: session)
+        }
     }
 
     func onSessionReceived(_ session: Session) {
