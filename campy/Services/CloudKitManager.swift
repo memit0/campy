@@ -101,6 +101,7 @@ enum CloudKitError: LocalizedError {
 }
 
 @Observable
+@MainActor
 class CloudKitManager {
     private var container: CKContainer?
     private var privateDatabase: CKDatabase?
@@ -270,7 +271,7 @@ class CloudKitManager {
         initializationState = .checkingAccountStatus
         logInfo("Checking iCloud account status...")
 
-        Task { @MainActor in
+        Task {
             do {
                 let status = try await container.accountStatus()
                 logInfo("Account status received: \(describeAccountStatus(status))")
@@ -386,10 +387,8 @@ class CloudKitManager {
             await syncUserBalance(balance)
             await syncTransactions(transactions)
 
-            await MainActor.run {
-                self.isSyncing = false
-                logInfo("Wallet data sync completed")
-            }
+            self.isSyncing = false
+            logInfo("Wallet data sync completed")
         }
     }
 
@@ -428,10 +427,8 @@ class CloudKitManager {
             logInfo("✅ Successfully saved user balance")
         } catch {
             logError("Failed to sync user balance", error: error)
-            await MainActor.run {
-                self.syncError = error
-                self.lastError = .saveFailed(recordType: userRecordType, underlyingError: error)
-            }
+            self.syncError = error
+            self.lastError = .saveFailed(recordType: userRecordType, underlyingError: error)
         }
     }
 
@@ -537,9 +534,7 @@ class CloudKitManager {
             return (balance, transactions)
         } catch {
             logError("Failed to fetch user data", error: error)
-            await MainActor.run {
-                self.lastError = .fetchFailed(recordType: userRecordType, underlyingError: error)
-            }
+            self.lastError = .fetchFailed(recordType: userRecordType, underlyingError: error)
             return nil
         }
     }

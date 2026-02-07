@@ -9,6 +9,7 @@ import SwiftUI
 import CloudKit
 
 @Observable
+@MainActor
 class WalletManager {
     private(set) var balance: Int = 0
     private(set) var transactions: [Transaction] = []

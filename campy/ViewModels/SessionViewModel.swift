@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 @Observable
+@MainActor
 class SessionViewModel {
     // Session setup state
     var selectedTimeIndex: Int? = nil

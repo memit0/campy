@@ -8,6 +8,7 @@
 import SwiftUI
 
 @Observable
+@MainActor
 class HomeViewModel {
     var showStartSession = false
     var showJoinSession = false
