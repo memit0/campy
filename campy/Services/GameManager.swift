@@ -212,6 +212,9 @@ class GameManager {
         UserDefaults.standard.integer(forKey: "avatarColorIndex")
     }
 
+    // Bluetooth error state
+    var bluetoothError: BluetoothError?
+
     // MARK: - Bluetooth Callbacks
 
     func setupBluetoothCallbacks() {
@@ -235,6 +238,10 @@ class GameManager {
 
         bluetoothManager?.onSessionReceived = { [weak self] session in
             self?.currentSession = session
+        }
+
+        bluetoothManager?.onError = { [weak self] error in
+            self?.bluetoothError = error
         }
     }
 }

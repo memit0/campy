@@ -14,6 +14,7 @@ struct ActiveSessionView: View {
     @Environment(AppLifecycleManager.self) private var appLifecycleManager
 
     @State private var showEndConfirmation = false
+    @State private var showBluetoothError = false
 
     var body: some View {
         ZStack {
@@ -57,6 +58,16 @@ struct ActiveSessionView: View {
             }
         } message: {
             Text("Leaving the session means you lose the challenge and your bet.")
+        }
+        .alert("Bluetooth Error", isPresented: $showBluetoothError) {
+            Button("OK", role: .cancel) {
+                gameManager.bluetoothError = nil
+            }
+        } message: {
+            Text(gameManager.bluetoothError?.localizedDescription ?? "An unknown Bluetooth error occurred.")
+        }
+        .onChange(of: gameManager.bluetoothError != nil) { _, hasError in
+            showBluetoothError = hasError
         }
     }
 
