@@ -228,4 +228,15 @@ class SessionViewModel {
         currentSession = session
         isConnecting = false
     }
+
+    func onBluetoothError(_ btError: BluetoothError) {
+        error = btError.localizedDescription
+        // If connection-related error during connecting, stop the connecting state
+        switch btError {
+        case .connectionFailed, .connectionTimeout, .peripheralNotFound:
+            isConnecting = false
+        default:
+            break
+        }
+    }
 }
