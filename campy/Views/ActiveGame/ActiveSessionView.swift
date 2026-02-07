@@ -54,8 +54,8 @@ struct ActiveSessionView: View {
             }
 
             // Game ended overlay
-            if case .ended(let winner) = gameManager.state {
-                GameEndedOverlay(didWin: winner) {
+            if let result = viewModel.gameResult {
+                GameEndedOverlay(didWin: result == .won) {
                     dismiss()
                 }
             }
@@ -74,7 +74,7 @@ struct ActiveSessionView: View {
         .alert("End Session?", isPresented: $showForceEndConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("End Session", role: .destructive) {
-                gameManager.forceEndStuckGame()
+                viewModel.forceEndSession()
             }
         } message: {
             Text("This will end the session and refund your bet. Use this if the session appears stuck.")

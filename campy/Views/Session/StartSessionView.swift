@@ -89,6 +89,17 @@ struct StartSessionView: View {
         .fullScreenCover(isPresented: $showActiveSession) {
             ActiveSessionView(viewModel: viewModel)
         }
+        .onChange(of: viewModel.gameResult != nil) {
+            if viewModel.gameResult != nil && !showActiveSession {
+                dismiss()
+            }
+        }
+        .onChange(of: showActiveSession) {
+            // When ActiveSessionView is dismissed after game ended, dismiss this sheet too
+            if !showActiveSession && viewModel.gameResult != nil {
+                dismiss()
+            }
+        }
         .alert("Error", isPresented: .init(
             get: { viewModel.error != nil },
             set: { if !$0 { viewModel.error = nil } }

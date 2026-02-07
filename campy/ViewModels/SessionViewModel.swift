@@ -20,6 +20,12 @@ class SessionViewModel {
     var isHost: Bool = false
     var isConnecting: Bool = false
     var error: String?
+    var gameResult: GameResult? = nil
+
+    enum GameResult {
+        case won
+        case lost
+    }
 
     // Timer state
     var remainingSeconds: Int = 0
@@ -110,6 +116,9 @@ class SessionViewModel {
 
         currentSession = session
 
+        // Deduct bet from wallet
+        walletManager?.deductBet(amount: bet)
+
         // Initialize timer with selected duration and start it
         remainingSeconds = duration * 60
         startTimer()
@@ -183,8 +192,27 @@ class SessionViewModel {
                 let totalPot = session.totalPot
                 let winnings = totalPot / winners.count
                 walletManager?.addWinnings(amount: winnings)
+                gameResult = .won
+            } else {
+                gameResult = .lost
             }
+        } else {
+            // Timer completed — everyone who stayed wins
+            walletManager?.addWinnings(amount: session.betAmount)
+            gameResult = .won
         }
+    }
+
+    func forceEndSession() {
+        stopTimer()
+
+        guard var session = currentSession else { return }
+        session.end()
+        currentSession = session
+
+        // Refund the bet since this is an abnormal end
+        walletManager?.refund(amount: session.betAmount, reason: "Session ended early")
+        gameResult = .lost
     }
 
     // MARK: - Timer
