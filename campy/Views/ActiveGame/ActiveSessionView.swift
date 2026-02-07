@@ -14,6 +14,7 @@ struct ActiveSessionView: View {
     @Environment(AppLifecycleManager.self) private var appLifecycleManager
 
     @State private var showEndConfirmation = false
+    @State private var showForceEndConfirmation = false
 
     var body: some View {
         ZStack {
@@ -37,7 +38,19 @@ struct ActiveSessionView: View {
                 betView
 
                 Spacer()
-                    .frame(height: CampySpacing.xxxl)
+                    .frame(height: CampySpacing.lg)
+
+                // End session button for stuck games
+                Button {
+                    showForceEndConfirmation = true
+                } label: {
+                    Text("End Session")
+                        .font(CampyFonts.caption())
+                        .foregroundColor(CampyColors.textMuted)
+                }
+
+                Spacer()
+                    .frame(height: CampySpacing.lg)
             }
 
             // Game ended overlay
@@ -57,6 +70,14 @@ struct ActiveSessionView: View {
             }
         } message: {
             Text("Leaving the session means you lose the challenge and your bet.")
+        }
+        .alert("End Session?", isPresented: $showForceEndConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("End Session", role: .destructive) {
+                gameManager.forceEndStuckGame()
+            }
+        } message: {
+            Text("This will end the session and refund your bet. Use this if the session appears stuck.")
         }
     }
 

@@ -26,6 +26,9 @@ class SessionViewModel {
     var isTimerRunning: Bool = false
 
     private var timerCancellable: AnyCancellable?
+    private var watchdogCancellable: AnyCancellable?
+    private static let watchdogIntervalSeconds: TimeInterval = 5
+    private static let watchdogGraceSeconds: TimeInterval = 10
 
     // Reference to managers
     weak var bluetoothManager: BluetoothManager?
@@ -34,12 +37,14 @@ class SessionViewModel {
 
     // Computed properties
     var selectedDuration: Int? {
-        guard let index = selectedTimeIndex else { return nil }
+        guard let index = selectedTimeIndex,
+              index >= 0 && index < CampyOptions.timeOptions.count else { return nil }
         return CampyOptions.timeOptions[index]
     }
 
     var selectedBet: Int? {
-        guard let index = selectedBetIndex else { return nil }
+        guard let index = selectedBetIndex,
+              index >= 0 && index < CampyOptions.betOptions.count else { return nil }
         return CampyOptions.betOptions[index]
     }
 
@@ -67,10 +72,20 @@ class SessionViewModel {
     // MARK: - Session Setup
 
     func startSession() {
-        guard canStartSession,
-              let duration = selectedDuration,
-              let bet = selectedBet else {
-            error = "Insufficient balance"
+        guard hasSelectedTimeAndBet else {
+            error = "Please select both time and bet amount."
+            return
+        }
+        guard let duration = selectedDuration, duration > 0 else {
+            error = "Invalid time selection."
+            return
+        }
+        guard let bet = selectedBet, bet > 0 else {
+            error = "Invalid bet amount."
+            return
+        }
+        guard canStartSession else {
+            error = "Insufficient balance for this bet."
             return
         }
 
@@ -125,6 +140,7 @@ class SessionViewModel {
         currentSession = session
         remainingSeconds = session.durationMinutes * 60
         startTimer()
+        startWatchdog()
 
         // Deduct bet from wallet
         walletManager?.deductBet(amount: session.betAmount)
@@ -191,12 +207,37 @@ class SessionViewModel {
         isTimerRunning = false
         timerCancellable?.cancel()
         timerCancellable = nil
+        watchdogCancellable?.cancel()
+        watchdogCancellable = nil
     }
 
     private func timerCompleted() {
         stopTimer()
         // Everyone who stayed wins!
         endGame(loserId: nil)
+    }
+
+    private func startWatchdog() {
+        watchdogCancellable = Timer.publish(
+            every: Self.watchdogIntervalSeconds, on: .main, in: .common
+        )
+        .autoconnect()
+        .sink { [weak self] _ in
+            self?.checkWatchdog()
+        }
+    }
+
+    private func checkWatchdog() {
+        guard isTimerRunning,
+              let session = currentSession,
+              let startedAt = session.startedAt else { return }
+
+        let elapsed = Date().timeIntervalSince(startedAt)
+        let expectedDuration = TimeInterval(session.durationMinutes * 60)
+
+        if elapsed >= expectedDuration + Self.watchdogGraceSeconds {
+            timerCompleted()
+        }
     }
 
     // MARK: - Bluetooth Callbacks
@@ -218,12 +259,21 @@ class SessionViewModel {
         currentSession = session
         remainingSeconds = session.durationMinutes * 60
         startTimer()
+        startWatchdog()
 
         // Deduct bet
         walletManager?.deductBet(amount: session.betAmount)
     }
 
     func onSessionReceived(_ session: Session) {
+        guard session.durationMinutes > 0,
+              session.betAmount > 0,
+              CampyOptions.timeOptions.contains(session.durationMinutes),
+              CampyOptions.betOptions.contains(session.betAmount) else {
+            error = "Invalid session parameters received."
+            isConnecting = false
+            return
+        }
         currentSession = session
         isConnecting = false
     }
